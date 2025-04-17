@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Whack-a-Mole — Cute Edition</title>
+<style>
+  body {
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    text-align: center;
+    background: #ffe7d6 url('https://www.transparenttextures.com/patterns/white-wall-3.png');
+    margin: 0;
+    padding: 20px;
+  }
+
+  h1 {
+    margin-bottom: 10px;
+    color: #6d4c41;
+    font-size: 48px;
+  }
+
+  #game-container {
+    background: #ffcc80;
+    border: 8px solid #ff9800;
+    border-radius: 25px;
+    padding: 20px;
+    display: inline-block;
+    box-shadow: 0 0 30px rgba(0,0,0,0.2);
+  }
+
+  #game {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    grid-gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  .hole {
+    width: 100px;
+    height: 100px;
+    background: #8b5e3c;
+    border-radius: 50%;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    border: 3px solid #5a3b1a;
+  }
+
+  .mole {
+    width: 80px;
+    height: 80px;
+    background: brown;
+    border-radius: 50%;
+    position: absolute;
+    bottom: -80px;
+    left: 10px;
+    transition: bottom 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mole.up {
+    bottom: 10px;
+  }
+
+  .face {
+    position: relative;
+    width: 50px;
+    height: 50px;
+  }
+
+  .eye {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+    top: 12px;
+  }
+
+  .eye.left {
+    left: 10px;
+  }
+
+  .eye.right {
+    right: 10px;
+  }
+
+  .nose {
+    position: absolute;
+    width: 10px;
+    height: 6px;
+    background: pink;
+    border-radius: 50%;
+    top: 25px;
+    left: 20px;
+  }
+
+  .mouth {
+    position: absolute;
+    width: 24px;
+    height: 10px;
+    border-bottom: 2px solid white;
+    border-radius: 50%;
+    top: 34px;
+    left: 13px;
+  }
+
+  #counter, #level {
+    font-size: 24px;
+    margin-top: 15px;
+    color: #4e342e;
+  }
+
+  #winMessage {
+    font-size: 40px;
+    font-weight: bold;
+    color: #4caf50;
+    margin-top: 30px;
+    display: none;
+    position: relative;
+  }
+
+  #nextLevelBtn, #pauseBtn, #startBtn, #footer a {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 12px 24px;
+    font-size: 20px;
+    background: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  #nextLevelBtn:hover, #pauseBtn:hover, #startBtn:hover, #footer a:hover {
+    background: #fb8c00;
+  }
+
+  .confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #ffc107;
+    animation: fall 1.5s linear forwards;
+    z-index: 10;
+  }
+
+  @keyframes fall {
+    to {
+      transform: translateY(300px) rotate(360deg);
+      opacity: 0;
+    }
+  }
+
+  #footer {
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Whack-a-Mole!</h1>
+<div id="game-container">
+  <div id="level">Level: 1</div>
+  <div id="counter">Hits: 0</div>
+
+  <button id="startBtn">Start Game</button>
+  <button id="pauseBtn" style="display:none;">Pause</button>
+
+  <div id="game"></div>
+
+  <div id="winMessage">You Win!</div>
+  <button id="nextLevelBtn" style="display:none;">Next Level?</button>
+</div>
+
+<div id="footer">
+  <a href="scratch.html">My Scratch Page</a>
+</div>
+
+<script>
+  const game = document.getElementById('game');
+  const counter = document.getElementById('counter');
+  const levelDisplay = document.getElementById('level');
+  const winMessage = document.getElementById('winMessage');
+  const nextLevelBtn = document.getElementById('nextLevelBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const startBtn = document.getElementById('startBtn');
+
+  let hitCount = 0;
+  let hitLog = [];
+  let level = 1;
+  let moleTimer = null;
+  let paused = false;
+  let gameRunning = false;
+
+  const levels = [
+    { speed: 900 },
+    { speed: 650 },
+    { speed: 500 }
+  ];
+
+  const minUpTime = 500;
+
+  function createMoleFace(mole) {
+    const face = document.createElement('div');
+    face.classList.add('face');
+
+    const eyeLeft = document.createElement('div');
+    eyeLeft.classList.add('eye', 'left');
+
+    const eyeRight = document.createElement('div');
+    eyeRight.classList.add('eye', 'right');
+
+    const nose = document.createElement('div');
+    nose.classList.add('nose');
+
+    const mouth = document.createElement('div');
+    mouth.classList.add('mouth');
+
+    face.appendChild(eyeLeft);
+    face.appendChild(eyeRight);
+    face.appendChild(nose);
+    face.appendChild(mouth);
+
+    mole.appendChild(face);
+  }
+
+  for (let i = 0; i < 9; i++) {
+    const hole = document.createElement('div');
+    hole.classList.add('hole');
+    hole.dataset.index = i;
+
+    const mole = document.createElement('div');
+    mole.classList.add('mole');
+    createMoleFace(mole);
+
+    hole.appendChild(mole);
+    game.appendChild(hole);
+
+    hole.addEventListener('click', () => {
+      const moleIsUp = mole.classList.contains('up');
+      hitLog.push({ hole: i, hit: moleIsUp });
+      console.log(`Clicked hole ${i}. Hit? ${moleIsUp}`);
+
+      if (moleIsUp && gameRunning) {
+        hitCount++;
+        counter.textContent = `Hits: ${hitCount}`;
+        mole.classList.remove('up');
+
+        if (hitCount >= 5) {
+          clearInterval(moleTimer);
+          gameRunning = false;
+          showWin();
+        }
+      }
+    });
+  }
+
+  function randomMole() {
+    if (paused || !gameRunning) return;
+
+    const holes = document.querySelectorAll('.hole .mole');
+    holes.forEach(m => m.classList.remove('up'));
+
+    const randomIndex = Math.floor(Math.random() * holes.length);
+    const mole = holes[randomIndex];
+    mole.classList.add('up');
+
+    const upTime = minUpTime + Math.random() * (levels[level-1].speed / 1.5);
+
+    setTimeout(() => {
+      mole.classList.remove('up');
+    }, upTime);
+  }
+
+  function startLevel() {
+    hitCount = 0;
+    counter.textContent = `Hits: ${hitCount}`;
+    winMessage.style.display = 'none';
+    nextLevelBtn.style.display = 'none';
+    pauseBtn.style.display = 'inline-block';
+    startBtn.style.display = 'none';
+    paused = false;
+    pauseBtn.textContent = "Pause";
+    gameRunning = true;
+    clearInterval(moleTimer);
+    moleTimer = setInterval(randomMole, levels[level-1].speed);
+  }
+
+  function showWin() {
+    winMessage.textContent = (level < 3) ? "You Win!" : "You Beat All Levels!";
+    winMessage.style.display = 'block';
+    nextLevelBtn.textContent = (level < 3) ? "Next Level?" : "Restart?";
+    nextLevelBtn.style.display = 'inline-block';
+    pauseBtn.style.display = 'none';
+    confettiExplosion();
+  }
+
+  function confettiExplosion() {
+    for (let i = 0; i < 50; i++) {
+      const confetti = document.createElement('div');
+      confetti.classList.add('confetti');
+      confetti.style.left = Math.random() * window.innerWidth + 'px';
+      confetti.style.background = `hsl(${Math.random()*360}, 100%, 50%)`;
+      confetti.style.top = '-10px';
+      document.body.appendChild(confetti);
+      setTimeout(() => confetti.remove(), 1500);
+    }
+  }
+
+  nextLevelBtn.addEventListener('click', () => {
+    if (level < 3) {
+      level++;
+      levelDisplay.textContent = `Level: ${level}`;
+      startLevel();
+    } else {
+      level = 1;
+      levelDisplay.textContent = `Level: ${level}`;
+      startLevel();
+    }
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? "Resume" : "Pause";
+  });
+
+  startBtn.addEventListener('click', () => {
+    startLevel();
+  });
+</script>
+</body>
+</html>
